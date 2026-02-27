@@ -1,4 +1,10 @@
-import { Providers } from './providers'
+"use client"
+
+import { WagmiProvider } from "wagmi"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { config } from "@/lib/wagmi"
+
+const queryClient = new QueryClient()
 
 export default function RootLayout({
   children,
@@ -7,10 +13,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, fontFamily: 'Arial, sans-serif' }}>
-        <Providers>
-          {children}
-        </Providers>
+      <body>
+        <WagmiProvider config={config}>
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        </WagmiProvider>
       </body>
     </html>
   )
