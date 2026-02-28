@@ -18,51 +18,81 @@ export default function Home() {
   const [aiAnalysis, setAiAnalysis] = useState("")
   const [analyzing, setAnalyzing] = useState(false)
 
-  useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
+  // Fetch transaction count from BscScan
   useEffect(() => {
     if (!address) return
+
     const fetchTxCount = async () => {
-      const res = await fetch(
-        `https://api.etherscan.io/api?module=proxy&action=eth_getTransactionCount&address=${address}&tag=latest&apikey=${process.env.NEXT_PUBLIC_ETHERSCAN_API}&chainid=56`
-      )
-      const data = await res.json()
-      if (data.result) {
-        setTxCount(parseInt(data.result, 16))
+      try {
+        const res = await fetch(
+          `https://api.bscscan.com/api?module=proxy&action=eth_getTransactionCount&address=${address}&tag=latest&apikey=${process.env.NEXT_PUBLIC_ETHERSCAN_API}`
+        )
+
+        const data = await res.json()
+
+        if (data.result) {
+          setTxCount(parseInt(data.result, 16))
+        }
+      } catch (error) {
+        console.error("Tx Fetch Error:", error)
       }
     }
+
     fetchTxCount()
   }, [address])
 
+  // Calculate risk when balance or txCount changes
   useEffect(() => {
     if (!mounted || !balanceData) return
+
     const balance = Number(
       formatUnits(balanceData.value, balanceData.decimals)
     )
-    setRisk(calculateRisk(balance, txCount))
+
+    const calculated = calculateRisk(balance, txCount)
+    setRisk(calculated)
   }, [mounted, balanceData, txCount])
 
   const runAI = async () => {
-    if (!risk || !balanceData) return
+    if (!risk || !balanceData || !address) return
+
     setAnalyzing(true)
+    setAiAnalysis("")
 
-    const balance = Number(
-      formatUnits(balanceData.value, balanceData.decimals)
-    )
+    try {
+      const balance = Number(
+        formatUnits(balanceData.value, balanceData.decimals)
+      )
 
-    const res = await fetch("/api/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        address,
-        balance,
-        txCount,
-        riskScore: risk.score,
-      }),
-    })
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          address,
+          balance,
+          txCount,
+          riskScore: risk.score,
+        }),
+      })
 
-    const data = await res.json()
-    setAiAnalysis(data.result)
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "AI request failed")
+      }
+
+      setAiAnalysis(data.report)
+    } catch (error: any) {
+      console.error("AI Error:", error)
+      setAiAnalysis("AI analysis failed. Check server logs.")
+    }
+
     setAnalyzing(false)
   }
 
