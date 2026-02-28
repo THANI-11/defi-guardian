@@ -1,59 +1,57 @@
 import OpenAI from "openai"
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-})
-
 export async function POST(req: Request) {
     try {
+        console.log("AI route triggered")
+
         const { address, balance, txCount, riskScore } = await req.json()
 
-        const prompt = `
-You are a senior blockchain security auditor specializing in BNB Smart Chain.
+        console.log("Request data:", { address, balance, txCount, riskScore })
 
-Perform a professional wallet risk assessment.
+        const openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
+        })
 
-Wallet Data:
-- Address: ${address}
-- BNB Balance: ${balance}
-- Transaction Count: ${txCount}
-- Calculated Risk Score: ${riskScore}/100
-
-Provide:
-
-1. Executive Risk Summary (2-3 sentences)
-2. Behavioral Analysis
-3. Potential Threat Indicators
-4. Security Recommendations
-5. Overall Risk Verdict (Low / Medium / High)
-
-Be concise, analytical, and professional.
-Use bullet points where appropriate.
-Avoid generic statements.
-`
+        if (!process.env.OPENAI_API_KEY) {
+            console.log("❌ OPENAI KEY MISSING")
+            return Response.json(
+                { error: "OpenAI key missing" },
+                { status: 500 }
+            )
+        }
 
         const completion = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
                 {
                     role: "system",
-                    content: "You are an elite blockchain security analyst."
+                    content: "You are a blockchain security analyst."
                 },
                 {
                     role: "user",
-                    content: prompt
+                    content: `
+Wallet: ${address}
+Balance: ${balance}
+Transactions: ${txCount}
+Risk Score: ${riskScore}/100
+
+Give a professional security audit report.
+          `
                 }
             ],
-            temperature: 0.3,
         })
+
+        console.log("AI success")
 
         return Response.json({
-            result: completion.choices[0].message.content,
+            report: completion.choices[0].message.content
         })
 
-    } catch (error) {
+    } catch (error: any) {
+        console.error("🔥 AI ERROR:", error)
+
         return Response.json(
-            { error: "AI analysis failed" },
+            { error: error.message || "AI failed" },
             { status: 500 }
         )
     }
