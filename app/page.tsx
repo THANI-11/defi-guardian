@@ -1,14 +1,18 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi"
-import { injected } from "wagmi/connectors"
+import {
+  useAccount,
+  useConnect,
+  useDisconnect,
+  useBalance,
+} from "wagmi"
 import { formatUnits } from "viem"
 import { calculateRisk } from "@/lib/risk"
 
 export default function Home() {
   const { address, isConnected } = useAccount()
-  const { connect } = useConnect()
+  const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
   const { data: balanceData } = useBalance({ address })
 
@@ -22,7 +26,7 @@ export default function Home() {
     setMounted(true)
   }, [])
 
-  // Fetch transaction count from BscScan
+  // Fetch BSC transaction count
   useEffect(() => {
     if (!address) return
 
@@ -31,21 +35,20 @@ export default function Home() {
         const res = await fetch(
           `https://api.bscscan.com/api?module=proxy&action=eth_getTransactionCount&address=${address}&tag=latest&apikey=${process.env.NEXT_PUBLIC_ETHERSCAN_API}`
         )
-
         const data = await res.json()
 
         if (data.result) {
           setTxCount(parseInt(data.result, 16))
         }
-      } catch (error) {
-        console.error("Tx Fetch Error:", error)
+      } catch (err) {
+        console.error("Tx fetch error:", err)
       }
     }
 
     fetchTxCount()
   }, [address])
 
-  // Calculate risk when balance or txCount changes
+  // Calculate risk
   useEffect(() => {
     if (!mounted || !balanceData) return
 
@@ -53,8 +56,7 @@ export default function Home() {
       formatUnits(balanceData.value, balanceData.decimals)
     )
 
-    const calculated = calculateRisk(balance, txCount)
-    setRisk(calculated)
+    setRisk(calculateRisk(balance, txCount))
   }, [mounted, balanceData, txCount])
 
   const runAI = async () => {
@@ -70,9 +72,7 @@ export default function Home() {
 
       const res = await fetch("/api/analyze", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           address,
           balance,
@@ -83,13 +83,11 @@ export default function Home() {
 
       const data = await res.json()
 
-      if (!res.ok) {
-        throw new Error(data.error || "AI request failed")
-      }
+      if (!res.ok) throw new Error(data.error)
 
       setAiAnalysis(data.report)
-    } catch (error: any) {
-      console.error("AI Error:", error)
+    } catch (err: any) {
+      console.error(err)
       setAiAnalysis("AI analysis failed. Check server logs.")
     }
 
@@ -114,26 +112,30 @@ export default function Home() {
         fontFamily: "Arial",
       }}
     >
-      <h1 style={{ fontSize: "32px", marginBottom: "10px" }}>
-        🛡 DeFi Guardian
-      </h1>
+      <h1 style={{ fontSize: "32px" }}>🛡 DeFi Guardian</h1>
       <p style={{ opacity: 0.8 }}>
         AI-Powered Wallet Risk Intelligence for BNB Smart Chain
       </p>
 
       {!isConnected ? (
-        <button
-          onClick={() => connect({ connector: injected() })}
-          style={{
-            marginTop: "30px",
-            padding: "12px 20px",
-            borderRadius: "8px",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          Connect Wallet
-        </button>
+        <div style={{ marginTop: "30px" }}>
+          {connectors.map((connector) => (
+            <button
+              key={connector.id}
+              onClick={() => connect({ connector })}
+              style={{
+                display: "block",
+                marginBottom: "10px",
+                padding: "12px 20px",
+                borderRadius: "8px",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              Connect with {connector.name}
+            </button>
+          ))}
+        </div>
       ) : (
         <div
           style={{
